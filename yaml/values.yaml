@@ -1,0 +1,74 @@
+global:
+  imageRegistry: ""
+  ## E.g.
+  ## imagePullSecrets:
+  ##   - myRegistryKeySecretName
+  ##
+  imagePullSecrets: []
+  storageClass: "helm-storage"
+
+persistence:
+  ## @param persistence.enabled Enable persistence using PVC
+  ##
+  enabled: true
+  ## @param persistence.storageClass PVC Storage Class for Drupal volume
+  ## If defined, storageClassName: <storageClass>
+  ##
+  storageClass: "helm-storage"
+  ## @param persistence.accessModes PVC Access Mode for Drupal volume
+  ## Requires persistence.enabled: true
+  ## If defined, PVC must be created manually before volume will be bound
+  ##
+  accessModes:
+    - ReadWriteOnce
+  ## @param persistence.size PVC Storage Request for Drupal volume
+  ##
+  size: 1Gi
+  ## @param persistence.existingClaim A manually managed Persistent Volume Claim
+  ## Requires persistence.enabled: true
+  ## If defined, PVC must be created manually before volume will be bound
+  ##
+mariadb:
+  ## @param mariadb.enabled Whether to deploy a mariadb server to satisfy the applications database requirements
+  ## To use an external database set this to false and configure the externalDatabase parameters
+  ##
+  enabled: true
+  ## @param mariadb.architecture MariaDB architecture (`standalone` or `replication`)
+  ##
+  architecture: standalone
+  ## MariaDB Authentication parameters
+  ## @param mariadb.auth.rootPassword Password for the MariaDB `root` user
+  ## @param mariadb.auth.database Database name to create
+  ## @param mariadb.auth.username Database user to create
+  ## @param mariadb.auth.password Password for the database
+  ##
+  auth:
+    ## ref: https://github.com/bitnami/containers/tree/main/bitnami/mariadb#setting-the-root-password-on-first-run
+    ##
+    rootPassword: ""
+    ## ref: https://github.com/bitnami/containers/blob/main/bitnami/mariadb/README.md#creating-a-database-on-first-run
+    ##
+    database: bitnami_drupal
+    ## ref: https://github.com/bitnami/containers/blob/main/bitnami/mariadb/README.md#creating-a-database-user-on-first-run
+    ##
+    username: bn_drupal
+    password: ""
+  primary:
+    ## Enable persistence using Persistent Volume Claims
+    ## ref: https://kubernetes.io/docs/user-guide/persistent-volumes/
+
+    persistence:
+      enabled: true
+      ## mariadb data Persistent Volume Storage Class
+      ## If defined, storageClassName: <storageClass>
+      ## If set to "-", storageClassName: "", which disables dynamic provisioning
+      ## If undefined (the default) or set to null, no storageClassName spec is
+      ##   set, choosing the default provisioner.  (gp2 on AWS, standard on
+      ##   GKE, AWS & OpenStack)
+      ##
+      storageClass: "helm-storage"
+      accessModes:
+        - ReadWriteOnce
+      size: 4Gi
+      hostPath: ""
+      existingClaim: ""
