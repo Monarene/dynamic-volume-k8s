@@ -1,5 +1,20 @@
+### Allow Kubernetes get the necessary credentials 
+kubectl create clusterrolebinding cluster-admin-binding \
+    --clusterrole=cluster-admin \
+    --user=$(gcloud config get-value core/account)
+
+
+### Clear the default version
+istioctl x uninstall --purge
+
+### Install on the new version
+istioctl uninstall --purge
+
 ### this will create custom crds for elasticsearch
 kubectl create -f https://download.elastic.co/downloads/eck/2.3.0/crds.yaml
+
+### Enable namespace
+kubectl label namespace elastic-system istio-injection=enabled
 
 ### install the operator with its RBAC rules
 ### this will create namespace called elastic-system and install elastic operator on it
@@ -26,6 +41,6 @@ PASSWORD=$(kubectl get secret np-elasticsearch-es-elastic-user -o=jsonpath='{.da
 
 
 ### port forward kibana cluster ip service
-❯❯ kubectl port-forward service/rahasak-elasticsearch-kb-http 5601
+❯❯ kubectl port-forward service/np-elasticsearch-kb-http 5601
 
 Use the elastic password to login to kibana

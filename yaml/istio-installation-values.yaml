@@ -1,0 +1,210 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  components:
+   # Istio control plane configuration
+   # pilot has been removed since 1.5 but the value stays the same, part of istiod
+    pilot:
+      k8s:
+        hpaSpec:
+          # Thanks to Istio's architecture, istiod is not a Single Point of Failure and its occasional
+          # unavailability does not impact the applications' availability. This means that during istiod unavailability,
+          # the applications will continue serving traffic and produce metrics but any changes to Mesh configuration
+          # will not be applied. Ideally, Kubernetes should be able to keep one running istiod replica.
+          #
+          # Nevertheless, it is recommended to increase the minimum replica count in production for better resilience.
+          #
+          minReplicas: 3 # For production increase this to minimum 2
+
+    cni:
+      enabled: true
+      namespace: kube-system
+
+    ingressGateways:
+      - name: istio-ingressgateway
+        enabled: false
+      - name: ingressgateway
+        enabled: true
+        k8s:
+          # Horizontal Pod Autoscaling settings. It will keep Ingress Gateway's CPU usage at 80%
+          hpaSpec:
+            maxReplicas: 10
+            # Makes sure that every AZ has at least one Ingress gateway.
+            minReplicas: 2
+
+          # We distribute Ingress Gateway's pods evenly among pods with the value below.
+          # We prefer not two gateways to be scheduled in two nodes.
+          affinity:
+            podAntiAffinity:
+              # Do not place two Ingress gateways onto same node. Never ever
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchExpressions:
+                      - key: istio
+                        operator: In
+                        values:
+                          - ingressgateway
+                  topologyKey: "kubernetes.io/hostname"
+              # Prefer not placing two Ingress gateways onto same AZ
+        
+
+          # We can schedule the Ingress gateway in all machine possibles, including those designated
+          # for monitoring and databases
+          tolerations:
+            - operator: "Exists"
+
+  values:
+    # TODO: duplicate key
+    # prometheus:
+    #   hub: "gcr.io/ecg-move-host/prom"
+    #   tolerations:
+    #     - operator: "Exists"
+    #   security:
+    #     enabled: false
+
+    telemetry:
+      v2:
+        # Enable Cloud Logging and Monitoring
+        stackdriver:
+
+          enabled: true
+
+          # Setting this to true enables Istio metrics to be sent to Cloud Monitoring
+          # This feature configures sidecar proxies to connect directly to Cloud Monitoring API. This
+          # requires Pods to have correct permissions (monitoring.metricWriter role) against Cloud Monitoring API.
+          #
+          # Permissions are typically given to Pods via Workload Identity.
+          # Please refer to the documentation to learn how to achieve this.
+          monitoring: true
+
+          # Setting this configures Sidecar proxies to publish access logs to Cloud Logging.
+          # Similarly to Monitoring, this requires logging.logWriter role for Pods.
+          # Disabled as this will add default access logs in addition to the configured ones
+          logging: false
+
+
+        # By default, all the request and response metrics from Istio are delivered to Cloud Monitoring.
+        # However it is also possible to expose metrics in Prometheus format for other purposes. If you only access to metrics
+        # via Cloud Monitoring, you can safely disable this setting.
+        #
+        # Please note that, by default Metrics Merging is enabled (https://istio.io/latest/docs/ops/integrations/prometheus/#option-1-metrics-merging)
+        # This means that, Istio will always rewrite the Pod annotations which specify the metric endpoints of the original pod ("prometheus.io/path", "prometheus.io/port")
+        # and ensure that Prometheus scrapes and endpoint served by the Istio sidecar. This new endpoint will expose some metrics regarding the sidecar itself and it will read the
+        # custom application metrics (from the original metrics endpoint of the application)
+        #
+        # Setting prometheus.enabled to false does not impact this. Prometheus will still scrape these sidecar metrics (istio_agent_*, envoy_*)
+        # These are quite excessive metrics which users should consider dropping at Prometheus
+        #
+        #TODO consider setting to true if you want proxies to expose Prometheus metrics
+        prometheus:
+          enabled: true
+
+    # https://istio.io/docs/setup/additional-setup/cni/
+    cni:
+      # This is the right value for GKE
+      cniBinDir: /home/kubernetes/bin
+      excludeNamespaces:
+        - istio-system
+        - kube-system
+      logLevel: info
+      repair:
+        deletePods: true
+
+    meshConfig:
+      enablePrometheusMerge: false
+      outboundTrafficPolicy:
+        mode: REGISTRY_ONLY
+      accessLogFile: "/dev/stdout"
+      accessLogEncoding: "JSON"
+      accessLogFormat: |
+        {
+          "log_type": "access_log",
+          "time": "%START_TIME%",
+          "@timestamp": "%START_TIME%",
+          "route_name": "%ROUTE_NAME%",
+          "method": "%REQ(:METHOD)%",
+          "request_url": "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+          "protocol": "%PROTOCOL%",
+          "status": "%RESPONSE_CODE%",
+          "response_flags": "%RESPONSE_FLAGS%",
+          "bytes_received": "%BYTES_RECEIVED%",
+          "bytes_sent": "%BYTES_SENT%",
+          "duration": "%DURATION%",
+          "x_forwarded_for": "%REQ(X-FORWARDED-FOR)%",
+          "user_agent": "%REQ(USER-AGENT)%",
+          "x_request_id": "%REQ(X-REQUEST-ID)%",
+          "x_b3_trace_id": "%REQ(X-B3-TRACEID)%",
+          "tx_id_deprecated": "%REQ(X-TRANSACTION-ID)%",
+          "dnt": "%REQ(X-DNT)%",
+          "parent_tx_id": "%REQ(X-PARENT-TRANSACTION-ID)%",
+          "client": "%REQ(X-CLIENT)%",
+          "client_id": "%REQ(X-CLIENT-ID)%",
+          "upstream_host": "%UPSTREAM_HOST%",
+          "upstream_cluster": "%UPSTREAM_CLUSTER%",
+          "upstream_transport_failure_reason": "%UPSTREAM_TRANSPORT_FAILURE_REASON%",
+          "upstream_local_address": "%UPSTREAM_LOCAL_ADDRESS%",
+          "downstream_local_address": "%DOWNSTREAM_LOCAL_ADDRESS%",
+          "downstream_remote_address": "%DOWNSTREAM_REMOTE_ADDRESS%"
+        }
+
+    global:
+      defaultTolerations:
+        - operator: "Exists"
+
+      proxy:
+        # Enables Google Cloud Tracing for tracing
+        # Requires Pods to own cloudtrace.agent role.
+        tracer: stackdriver
+
+      # See https://istio.io/docs/tasks/policy-enforcement/enabling-policy/
+      # Don't enable unless policies are in use
+      # disablePolicyChecks: true
+
+      # Set the default behavior of the sidecar for handling outbound traffic from the application:
+      # ALLOW_ANY - outbound traffic to unknown destinations will be allowed, in case there are no
+      #   services or ServiceEntries for the destination port
+      # REGISTRY_ONLY - restrict outbound traffic to services defined in the service registry as well
+      #   as those defined through ServiceEntries
+      # ALLOW_ANY is the default in 1.1.  This means each pod will be able to make outbound requests
+      # to services outside of the mesh without any ServiceEntry.
+      # REGISTRY_ONLY was the default in 1.0.  If this behavior is desired, set the value below to REGISTRY_ONLY.
+      #
+      # For eCG services, it is imperative that outbound traffic is blocked by default and only whitelisted endpoints are
+      # available for external services.
+      #
+      # Set those whitelisted services in service mesh configuration's Helm chart.
+      # outboundTrafficPolicy:
+      #   mode: REGISTRY_ONLY
+
+    sidecarInjectorWebhook:
+      # If true, webhook or istioctl injector will rewrite PodSpec for liveness
+      # health check to redirect request to sidecar. This makes liveness check work
+      # even when mTLS is enabled.
+      #
+      # See: https://istio.io/docs/ops/configuration/mesh/app-health-check/#probe-rewrite
+      rewriteAppHTTPProbe: true
+
+    gateways:
+      istio-ingressgateway:
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 1024Mi
+
+        serviceAnnotations:
+          cloud.google.com/neg: '{"exposed_ports": {"80":{}}}'
+
+        type: ClusterIP
+
+        ports:
+          # Health check port for Istio Ingress Gateway (This is the default one running from /healthz/ready. Do not
+          # confuse with the smart Health Check Service checking application health status in Kubernetes cluster.)
+          - port: "15021"
+            targetPort: "15021"
+            name: status-port
+
+          # Send all regular customer traffic to this port. (https://www.kijijiautos.ca)
+          # This is plain HTTP because we pass the traffic in plain HTTP between Google Load Balancer and our cluster.  This may sound insecure but we rely on Google's network level encryption here.
+          - port: "80"
+            targetPort: "8080"
+            name: http

@@ -1,0 +1,58 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: istio
+    meta.helm.sh/release-name: prod-vault
+    meta.helm.sh/release-namespace: prod-sre-app
+  creationTimestamp: "2020-07-08T08:45:46Z"
+  generation: 1
+  labels:
+    app.kubernetes.io/instance: prod-vault
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: vault
+    helm.sh/chart: vault-0.14.0
+  name: prod-vault
+  namespace: prod-sre-app
+  resourceVersion: "1094885773"
+  uid: 18715dbb-422f-41ef-9447-fdb16079c9ac
+spec:
+  gateways:
+  - istio-system/ingressgateway
+  hosts:
+  - vault.infraprod.gcp.ecgmove.cloud
+  http:
+  - corsPolicy:
+      allowHeaders:
+      - '*'
+      - authorization
+      - content-type
+      - content-disposition
+      allowMethods:
+      - PUT
+      - GET
+      - POST
+      - HEAD
+      - PATCH
+      - DELETE
+      - OPTIONS
+      allowOrigin:
+      - '*'
+    match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: prod-vault
+        port:
+          number: 8200
+      headers:
+        request:
+          remove:
+          - X-Transaction-ID
+          - X-Transaction-SEQ
+        response:
+          add:
+            Strict-Transport-Security: max-age=63072000
+          remove:
+          - X-Powered-By
