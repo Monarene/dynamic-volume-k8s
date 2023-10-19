@@ -3,49 +3,35 @@ kind: VirtualService
 metadata:
   annotations:
     kubernetes.io/ingress.class: istio
-    meta.helm.sh/release-name: prod-vault
+    meta.helm.sh/release-name: prometheus-aggregator
     meta.helm.sh/release-namespace: prod-sre-app
-  creationTimestamp: "2020-07-08T08:45:46Z"
-  generation: 1
+  creationTimestamp: "2020-10-12T11:22:23Z"
+  generation: 15
   labels:
-    app.kubernetes.io/instance: prod-vault
+    app: prometheus-helm
     app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: vault
-    helm.sh/chart: vault-0.14.0
-  name: prod-vault
+    chart: prometheus-helm-0.2.0
+    component: server
+    heritage: Helm
+    release: prometheus-aggregator
+  name: prometheus-aggregator
   namespace: prod-sre-app
-  resourceVersion: "1094885773"
-  uid: 18715dbb-422f-41ef-9447-fdb16079c9ac
+  resourceVersion: "519338154"
+  uid: 359cd753-9ee8-462b-b48b-9b1effec8650
 spec:
   gateways:
   - istio-system/ingressgateway
   hosts:
-  - vault.infraprod.gcp.ecgmove.cloud
+  - prometheus-uwe-aggregator.infraprod.gcp.ecgmove.cloud
   http:
-  - corsPolicy:
-      allowHeaders:
-      - '*'
-      - authorization
-      - content-type
-      - content-disposition
-      allowMethods:
-      - PUT
-      - GET
-      - POST
-      - HEAD
-      - PATCH
-      - DELETE
-      - OPTIONS
-      allowOrigin:
-      - '*'
-    match:
+  - match:
     - uri:
         prefix: /
     route:
     - destination:
-        host: prod-vault
+        host: prom-uwe-agg-istio.prod-sre-app.svc.cluster.local
         port:
-          number: 8200
+          number: 9090
       headers:
         request:
           remove:

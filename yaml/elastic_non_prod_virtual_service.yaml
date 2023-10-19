@@ -1,0 +1,29 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: elastic-istio
+  namespace: elastic-system
+spec:
+  gateways:
+  - istio-system/ingressgateway
+  hosts:
+  - elastic.infranonprod.gcp.ecgmove.cloud
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: np-elasticsearch-es-http.elastic-system.svc.cluster.local
+        port:
+          number: 9200
+      headers:
+        request:
+          remove:
+          - X-Transaction-ID
+          - X-Transaction-SEQ
+        response:
+          add:
+            Strict-Transport-Security: max-age=63072000
+          remove:
+          - X-Powered-By
