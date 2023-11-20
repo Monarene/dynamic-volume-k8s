@@ -43,4 +43,7 @@ PASSWORD=$(kubectl get secret np-elasticsearch-es-elastic-user -o=jsonpath='{.da
 ### port forward kibana cluster ip service
 ❯❯ kubectl port-forward service/np-elasticsearch-kb-http 5601
 
+
+kubectl rollout restart deployment
+
 Use the elastic password to login to kibana
