@@ -12,12 +12,6 @@ variable "aws_profile" {
   description = "AWS profile"
 }
 
-variable "author" {
-  type = string
-  description = "Created by"
-  default = "monarene"
-}
-
 // Default values
 
 variable "cluster_name" {
