@@ -17,3 +17,9 @@ variable "cluster_name" {
   description = "EKS cluster name"
   default = "test_cluster"
 }
+
+variable "instance_type" {
+  type = string
+  description = "Instance Type"
+  default = "t3.medium"
+}
